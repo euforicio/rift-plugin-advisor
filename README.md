@@ -1,10 +1,10 @@
 # Advisor
 
-> A persistent, independent reviewer for bb coding threads.
+> A persistent, independent reviewer for Rift coding threads.
 
-[![CI](https://github.com/salemsayed/bb-plugin-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/salemsayed/bb-plugin-advisor/actions/workflows/ci.yml)
+[![CI](https://github.com/euforicio/rift-plugin-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/euforicio/rift-plugin-advisor/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![bb ≥ 0.35](https://img.shields.io/badge/bb-%E2%89%A5%200.35-8b5cf6.svg)](#install)
+[![Rift ≥ 0.35](https://img.shields.io/badge/Rift-%E2%89%A5%200.35-8b5cf6.svg)](#install)
 
 <p align="center">
   <img src="./docs/media/advisor-hero.svg" alt="Advisor — an independent reviewer on every coding thread" width="100%" />
@@ -16,12 +16,12 @@ reviewer runs in its own hidden thread with its own context, remembers what it
 has already flagged, and escalates when the same defect comes back. A review
 that cannot run reports as *unavailable*, never as approval.
 
-Advisor is a bb port of the advisor from
+Advisor is a Rift port of the advisor from
 [oh-my-pi](https://github.com/can1357/oh-my-pi) — the design is theirs. See
 [Credits](#credits).
 
 <p align="center">
-  <a href="https://cdn.jsdelivr.net/gh/salemsayed/bb-plugin-advisor@main/docs/media/advisor-promo.mp4"><strong>Play the 22-second demo →</strong></a>
+  <a href="https://cdn.jsdelivr.net/gh/euforicio/rift-plugin-advisor@main/docs/media/advisor-promo.mp4"><strong>Play the 22-second demo →</strong></a>
   <br />
   <sub>Opens in your browser's video player with sound.</sub>
 </p>
@@ -37,7 +37,7 @@ README. It was recaptured — the screenshot above is the replacement.</sub>
 ## Why
 
 An agent grading its own work has every incentive to pass it. Advisor adds an
-outside opinion without changing bb core:
+outside opinion without changing Rift core:
 
 - **Independent.** Reviews run in a separate, hidden reviewer thread — a
   different context, optionally a different model per machine, spawned into the
@@ -81,18 +81,18 @@ injected stale.
 
 ## Install
 
-Requires bb ≥ 0.35.
+Requires Rift ≥ 0.35.
 
 From GitHub:
 
 ```sh
-bb plugin install git:https://github.com/salemsayed/bb-plugin-advisor.git@main
+rift plugin install git:https://github.com/euforicio/rift-plugin-advisor.git@main
 ```
 
 From a local checkout:
 
 ```sh
-bb plugin install . --yes
+rift plugin install . --yes
 ```
 
 ## Configure
@@ -115,7 +115,7 @@ All settings live in **Settings → Extensions → Advisor**.
 ### Reviewer model, per machine
 
 The model section loads the live provider/model catalog independently from
-every connected bb machine. Selections are stored by stable host id, not as
+every connected Rift machine. Selections are stored by stable host id, not as
 one global model string. Each machine selection includes a reasoning level
 populated from that model's live supported-reasoning metadata; choosing
 "Model default" tracks the model's reported default.
@@ -231,12 +231,12 @@ session is bound to the environment it was spawned into; if the primary thread
 moves, the reviewer is respawned rather than left inspecting the old checkout.
 
 The reviewer's permission mode is negotiated per review against what the
-provider actually advertises, narrowest first: `readonly` when bb offers it,
+provider actually advertises, narrowest first: `readonly` when Rift offers it,
 otherwise `accept-edits`. Pinning either would be wrong — `readonly` reports
-every review as unavailable on a bb released before that mode existed, and
-`accept-edits` keeps handing the reviewer workspace write access on a bb that
+every review as unavailable on a Rift released before that mode existed, and
+`accept-edits` keeps handing the reviewer workspace write access on a Rift that
 has something narrower. A session spawned under a wider mode is retired rather
-than reused once a narrower one becomes available, so upgrading bb tightens
+than reused once a narrower one becomes available, so upgrading Rift tightens
 the reviewer without any action.
 
 When the provider catalog cannot be read, the mode is probed narrowest-first
@@ -248,21 +248,21 @@ neither disables reviews nor silently widens them.
 ## Inspect
 
 ```sh
-bb advisor status [thread-id]
-bb advisor reviews [thread-id]
-bb plugin logs advisor -f
+rift advisor status [thread-id]
+rift advisor reviews [thread-id]
+rift plugin logs advisor -f
 ```
 
 ## Security and trust
 
 > [!IMPORTANT]
-> Like every bb plugin, Advisor is full-trust code: its server runs inside
-> your bb server, not in a sandbox, with access to the plugin SDK, its own
+> Like every Rift plugin, Advisor is full-trust code: its server runs inside
+> your Rift server, not in a sandbox, with access to the plugin SDK, its own
 > database, and thread orchestration. Read the source before installing —
 > this repository is small on purpose.
 
 The reviewer itself is constrained by the negotiated permission mode, with one
-caveat: bb only gained a first-class `readonly` mode recently, so on an older
+caveat: Rift only gained a first-class `readonly` mode recently, so on an older
 build the reviewer is a behavioural boundary rather than an enforced one — it
 is instructed to use read-only operations and runs in the narrowest mode
 available, but it is not sandboxed. The exact tool set exposed in a given mode
@@ -287,8 +287,8 @@ checks on pushes to `main` and on pull requests.
 The advisor concept — a persistent second model that reviews the primary
 agent's work, holds findings across turns, and injects advice back into the
 conversation — originates in [oh-my-pi](https://github.com/can1357/oh-my-pi)
-by can1357. This plugin is a re-implementation of that design on bb's plugin
-surface; the ideas are omp's, the bb-specific code is new.
+by can1357. This plugin is a re-implementation of that design on Rift's plugin
+surface; the ideas are omp's, the Rift-specific code is new.
 
 [pi-omplike-advisor](https://github.com/pasky/pi-omplike-advisor) by pasky
 ports the same design to upstream pi and is worth reading for its own take on
@@ -297,3 +297,9 @@ advice delivery and advisor context management.
 ## License
 
 MIT © 2026 Salem Sayed Abdel Gawad. See [LICENSE](./LICENSE).
+
+## Fork provenance
+
+Originally authored by Salem Sayed Abdel Gawad at https://github.com/salemsayed/bb-plugin-advisor. Upstream MIT license and history are preserved. Rift Labs maintains this fork for https://riftlabs.app.
+
+Build uses the actual vendored Rift 0.42.1 builder; provenance and license are in tooling/vendor. Run `npm ci`, `npm run verify`. SDK is pinned to 0.4.48 with the lockfile resolving the supplied local archive.

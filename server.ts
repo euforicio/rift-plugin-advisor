@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { defineRpcContract } from "@bb/plugin-sdk";
+import { defineRpcContract } from "@riftlabs/plugin-sdk";
 import type {
-  BbPluginApi,
+  RiftPluginApi,
   PluginAgentConfigurationContext,
-} from "@bb/plugin-sdk";
+} from "@riftlabs/plugin-sdk";
 import {
   formatReview,
   formatTimelineRows,
@@ -21,18 +21,18 @@ const ADVISOR_TITLE_PREFIX = "Advisor · ";
 /**
  * Permission modes the reviewer will accept, least privileged first. The mode
  * is negotiated against what the provider actually advertises rather than
- * hardcoded, because bb only gained a real `readonly` mode recently: pinning
- * it would make every review report unavailable on a bb that predates it,
+ * hardcoded, because rift only gained a real `readonly` mode recently: pinning
+ * it would make every review report unavailable on a rift that predates it,
  * while pinning `accept-edits` would keep handing the reviewer workspace write
- * access forever on a bb that has something narrower. Picking the value out of
- * the provider's own `supportedPermissionModes` also keeps this typed on both
+ * access forever on a rift that has something narrower. Picking the value out of
+ * the provider's own `permissionModes` also keeps this typed on both
  * versions without a cast.
  */
 const ADVISOR_PERMISSION_MODE_PREFERENCE = ["readonly", "accept-edits"];
 const ADVISOR_PERMISSION_MODE_LABEL = "read-only (or accept-edits) mode";
-/** The host's own permission-mode union, whichever bb version is running. */
+/** The host's own permission-mode union, whichever rift version is running. */
 type AdvisorPermissionMode = NonNullable<
-  Parameters<BbPluginApi["sdk"]["threads"]["spawn"]>[0]["permissionMode"]
+  Parameters<RiftPluginApi["sdk"]["threads"]["spawn"]>[0]["permissionMode"]
 >;
 /** Advice about a turn this old is stale; it is retired instead of injected. */
 const PENDING_ADVICE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -480,7 +480,7 @@ type AdvisorOutcome =
  * The narrowest mode in {@link ADVISOR_PERMISSION_MODE_PREFERENCE} this
  * provider supports, or null when it supports none of them. The value is taken
  * from `supported` rather than from the preference list so it stays typed as
- * the host's own permission-mode union on whichever bb version is running.
+ * the host's own permission-mode union on whichever rift version is running.
  */
 function narrowestReviewMode<Mode extends string>(
   supported: readonly Mode[],
@@ -565,7 +565,7 @@ function buildAdvisorPrompt(args: {
   openFindingsTruncated: boolean;
 }): string {
   const budget = reviewBudget(args.timeoutSeconds);
-  return `You are the independent advisor for bb coding thread ${args.primaryThreadId}.
+  return `You are the independent advisor for rift coding thread ${args.primaryThreadId}.
 
 Review the primary agent's work, reasoning summaries, tool activity, and current workspace state. You are a reviewer, not the primary executor. Inspect files with read-only tools when the transcript alone is insufficient.
 
@@ -618,8 +618,8 @@ resolved: comma-separated keys from the open list above that you verified are no
 END_ADVISOR_RESULT`;
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  const settings = bb.settings.define({
+export default async function plugin(rift: RiftPluginApi) {
+  const settings = rift.settings.define({
     enabled: {
       type: "boolean",
       label: "Enable advisor",
@@ -680,8 +680,8 @@ export default async function plugin(bb: BbPluginApi) {
     currentSettings = parseRuntimeSettings(next);
   });
 
-  const db = bb.storage.database();
-  bb.storage.migrate(db, [
+  const db = rift.storage.database();
+  rift.storage.migrate(db, [
     `CREATE TABLE IF NOT EXISTS advisor_sessions (
       primary_thread_id TEXT PRIMARY KEY,
       advisor_thread_id TEXT NOT NULL,
@@ -748,7 +748,7 @@ export default async function plugin(bb: BbPluginApi) {
       ON advisor_reviews(primary_thread_id, finding_key)`,
     `ALTER TABLE advisor_reviews ADD COLUMN resolved_at INTEGER`,
     `ALTER TABLE advisor_reviews ADD COLUMN resolved_reason TEXT NOT NULL DEFAULT ''`,
-    // The mode is negotiated per review, so a bb upgrade that adds a narrower
+    // The mode is negotiated per review, so a rift upgrade that adds a narrower
     // one must retire the wider session instead of reusing it. Legacy rows
     // carry '', which matches no negotiated mode and so respawns once.
     `ALTER TABLE advisor_sessions
@@ -816,7 +816,7 @@ export default async function plugin(bb: BbPluginApi) {
    * an ephemeral broadcast that a reconnecting client may have missed.
    */
   function publishThreadChanged(primaryThreadId: string): void {
-    bb.realtime.publish("thread-changed", { threadId: primaryThreadId });
+    rift.realtime.publish("thread-changed", { threadId: primaryThreadId });
   }
 
   function readChainRoot(
@@ -988,15 +988,15 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   async function listHostModelOptions(hostId: string) {
-    const providers = (await bb.sdk.providers.list({ hostId })).filter(
+    const providers = (await rift.sdk.providers.list({ hostId })).filter(
       (provider) =>
         provider.available &&
-        narrowestReviewMode(provider.capabilities.supportedPermissionModes) !==
+        narrowestReviewMode(provider.capabilities.permissionModes) !==
           null,
     );
     const optionGroups = await Promise.all(
       providers.map(async (provider) => {
-        const catalog = await bb.sdk.providers.models({
+        const catalog = await rift.sdk.providers.models({
           hostId,
           providerId: provider.id,
         });
@@ -1024,7 +1024,7 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   async function modelConfiguration() {
-    const hosts = await bb.sdk.hosts.list();
+    const hosts = await rift.sdk.hosts.list();
     return {
       hosts: await Promise.all(
         hosts.map(async (host) => {
@@ -1243,7 +1243,7 @@ export default async function plugin(bb: BbPluginApi) {
     publishThreadChanged(primaryThreadId);
 
     try {
-      await bb.sdk.threads.send({
+      await rift.sdk.threads.send({
         threadId: primaryThreadId,
         mode: "queue-if-active",
         input: [
@@ -1283,7 +1283,7 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   async function hasCompletedLatestTurn(primaryThreadId: string): Promise<boolean> {
-    const timeline = await bb.sdk.threads.timeline({
+    const timeline = await rift.sdk.threads.timeline({
       threadId: primaryThreadId,
       includeNestedRows: "true",
       segmentLimit: "2",
@@ -1331,7 +1331,7 @@ export default async function plugin(bb: BbPluginApi) {
     );
   }
 
-  bb.rpc.register(rpcContract, {
+  rift.rpc.register(rpcContract, {
     modelConfiguration,
 
     threadReviews({ threadId }) {
@@ -1428,7 +1428,7 @@ export default async function plugin(bb: BbPluginApi) {
         .get(threadId, advisorThreadId);
       if (!owned) return { available: false };
       try {
-        const thread = await bb.sdk.threads.get({ threadId: advisorThreadId });
+        const thread = await rift.sdk.threads.get({ threadId: advisorThreadId });
         return { available: !thread.deletedAt };
       } catch {
         return { available: false };
@@ -1517,7 +1517,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (waitingForCompletion.has(threadId)) {
         return { started: false, waiting: true };
       }
-      const thread = await bb.sdk.threads.get({ threadId });
+      const thread = await rift.sdk.threads.get({ threadId });
       if (thread.status !== "idle") {
         waitingForCompletion.add(threadId);
         publishThreadChanged(threadId);
@@ -1579,16 +1579,12 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.registerTool({
+  rift.agents.registerTool({
     name: ADVISOR_TOOL,
     description:
       "Run an independent review-only model pass on this thread and return concrete issues before finalizing.",
     instructions:
       "For substantial coding work, call advisor_review exactly once after implementation and verification but before the final answer. Address concern/blocker feedback before completing.",
-    experimental_statusLabels: {
-      pending: "Consulting advisor",
-      completed: "Consulted advisor",
-    },
     parameters: z.object({
       focus: z
         .string()
@@ -1648,7 +1644,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.configure((context) => {
+  rift.agents.configure((context) => {
     const isPluginOwnedThread = context.origin.pluginId !== null;
     if (isPluginOwnedThread || !currentSettings.enabled) {
       return { tools: [], skills: [] };
@@ -1675,13 +1671,13 @@ export default async function plugin(bb: BbPluginApi) {
     if (cached) return cached;
 
     const [thread, defaults] = await Promise.all([
-      bb.sdk.threads.get({ threadId: primaryThreadId }),
-      bb.sdk.threads.defaultExecutionOptions({ threadId: primaryThreadId }),
+      rift.sdk.threads.get({ threadId: primaryThreadId }),
+      rift.sdk.threads.defaultExecutionOptions({ threadId: primaryThreadId }),
     ]);
     if (!thread.environmentId) {
       throw new Error("The primary thread has no ready environment for advisor review.");
     }
-    const environment = await bb.sdk.environments.get({
+    const environment = await rift.sdk.environments.get({
       environmentId: thread.environmentId,
     });
     const context = {
@@ -1712,7 +1708,7 @@ export default async function plugin(bb: BbPluginApi) {
     | "unknown"
   > {
     try {
-      const catalog = await bb.sdk.providers.models({
+      const catalog = await rift.sdk.providers.models({
         environmentId,
         providerId,
       });
@@ -1722,13 +1718,13 @@ export default async function plugin(bb: BbPluginApi) {
       if (!provider) return "unknown";
       if (!provider.available) return "unsupported";
       const permissionMode = narrowestReviewMode(
-        provider.capabilities.supportedPermissionModes,
+        provider.capabilities.permissionModes,
       );
       return permissionMode === null
         ? "unsupported"
         : { kind: "supported", permissionMode };
     } catch (error) {
-      bb.log.warn(
+      rift.log.warn(
         `Could not read the ${providerId} catalog for advisor review: ${String(error)}`,
       );
       return "unknown";
@@ -1774,7 +1770,7 @@ export default async function plugin(bb: BbPluginApi) {
       return followPrimaryModel(context);
     }
     try {
-      const catalog = await bb.sdk.providers.models({
+      const catalog = await rift.sdk.providers.models({
         environmentId: context.environmentId,
         providerId: selection.providerId,
       });
@@ -1784,7 +1780,7 @@ export default async function plugin(bb: BbPluginApi) {
       const permissionMode =
         selectedProvider?.available === true
           ? narrowestReviewMode(
-              selectedProvider.capabilities.supportedPermissionModes,
+              selectedProvider.capabilities.permissionModes,
             )
           : null;
       const selectedModel = catalog.models.find(
@@ -1813,11 +1809,11 @@ export default async function plugin(bb: BbPluginApi) {
         };
       }
     } catch (error) {
-      bb.log.warn(
+      rift.log.warn(
         `Could not validate advisor model on host ${context.hostId}: ${String(error)}`,
       );
     }
-    bb.log.warn(
+    rift.log.warn(
       `Advisor configuration ${selection.providerId}/${selection.model}/${selection.reasoningLevel} is unavailable on host ${context.hostId}; following the primary model for this review.`,
     );
     return followPrimaryModel(context);
@@ -1865,36 +1861,36 @@ export default async function plugin(bb: BbPluginApi) {
       stored.data.model === model &&
       stored.data.reasoning_level === reasoningKey &&
       stored.data.environment_id === context.environmentId &&
-      // A session spawned under a wider mode must not survive a bb upgrade
+      // A session spawned under a wider mode must not survive a rift upgrade
       // that made a narrower one available: reusing it would quietly keep the
       // reviewer's write access.
       stored.data.permission_mode === candidates[0]
     ) {
       try {
-        const thread = await bb.sdk.threads.get({
+        const thread = await rift.sdk.threads.get({
           threadId: stored.data.advisor_thread_id,
         });
         if (!thread.archivedAt && !thread.deletedAt) {
           return { id: thread.id, startedWithPrompt: false };
         }
       } catch (error) {
-        bb.log.warn(`Recreating missing advisor thread: ${String(error)}`);
+        rift.log.warn(`Recreating missing advisor thread: ${String(error)}`);
       }
     }
 
-    const primary = await bb.sdk.threads.get({ threadId: primaryThreadId });
-    let advisor: Awaited<ReturnType<typeof bb.sdk.threads.spawn>> | null = null;
+    const primary = await rift.sdk.threads.get({ threadId: primaryThreadId });
+    let advisor: Awaited<ReturnType<typeof rift.sdk.threads.spawn>> | null = null;
     let permissionMode = candidates[0]!;
     let lastError: unknown;
     for (const candidate of candidates) {
       try {
-        advisor = await bb.sdk.threads.spawn({
+        advisor = await rift.sdk.threads.spawn({
           projectId: context.projectId,
           providerId,
           model,
           ...(reasoningLevel ? { reasoningLevel } : {}),
           // The host validates this. When the catalog was unreadable the
-          // candidate may be a mode this bb build's types do not know, which is
+          // candidate may be a mode this rift build's types do not know, which is
           // exactly the boundary a cast belongs at: a refusal falls through to
           // the next, wider candidate rather than being assumed up front.
           permissionMode: candidate as AdvisorPermissionMode,
@@ -1907,7 +1903,7 @@ export default async function plugin(bb: BbPluginApi) {
         break;
       } catch (error) {
         lastError = error;
-        bb.log.warn(
+        rift.log.warn(
           `Reviewer spawn refused in ${candidate} mode: ${String(error)}`,
         );
       }
@@ -2041,7 +2037,7 @@ export default async function plugin(bb: BbPluginApi) {
         resolved,
       );
       if (!advisor.startedWithPrompt) {
-        await bb.sdk.threads.send({
+        await rift.sdk.threads.send({
           threadId: advisor.id,
           mode: "start",
           input: [{ type: "text", text: prompt, mentions: [] }],
@@ -2055,7 +2051,7 @@ export default async function plugin(bb: BbPluginApi) {
 
     const advisorThreadId = advisor.id;
     const stopAdvisor = (): void => {
-      void bb.sdk.threads
+      void rift.sdk.threads
         .stop({ threadId: advisorThreadId })
         .catch(() => undefined);
     };
@@ -2069,7 +2065,7 @@ export default async function plugin(bb: BbPluginApi) {
     const timeoutMs = currentSettings.timeoutSeconds * 1000;
     const { finalizeAfterMs } = reviewBudget(currentSettings.timeoutSeconds);
     const finalizeTimer = setTimeout(() => {
-      void bb.sdk.threads
+      void rift.sdk.threads
         .send({
           threadId: advisorThreadId,
           mode: "steer-if-active",
@@ -2083,13 +2079,13 @@ export default async function plugin(bb: BbPluginApi) {
           ],
         })
         .catch((error) => {
-          bb.log.warn(
+          rift.log.warn(
             `Could not send the advisor finalization deadline: ${describeError(error)}`,
           );
         });
     }, finalizeAfterMs);
     try {
-      await bb.sdk.threads.wait({
+      await rift.sdk.threads.wait({
         threadId: advisorThreadId,
         status: "idle",
         timeoutMs,
@@ -2099,7 +2095,7 @@ export default async function plugin(bb: BbPluginApi) {
       stopAdvisor();
       // A timeout is self-describing; the exception name and the reviewer's
       // thread id are developer detail that ends up verbatim in the panel.
-      bb.log.warn(`Advisor review timed out: ${describeError(error)}`);
+      rift.log.warn(`Advisor review timed out: ${describeError(error)}`);
       return unavailable(
         signal?.aborted
           ? CANCELLED_REASON
@@ -2111,7 +2107,7 @@ export default async function plugin(bb: BbPluginApi) {
     }
     let output: string | null;
     try {
-      ({ output } = await bb.sdk.threads.output({
+      ({ output } = await rift.sdk.threads.output({
         threadId: advisorThreadId,
       }));
     } catch (error) {
@@ -2239,7 +2235,7 @@ export default async function plugin(bb: BbPluginApi) {
   ): Promise<AdvisorOutcome> {
     let timeline: { rows: readonly object[]; maxSeq: number };
     try {
-      timeline = await bb.sdk.threads.timeline({
+      timeline = await rift.sdk.threads.timeline({
         threadId: primaryThreadId,
         includeNestedRows: "true",
         segmentLimit: "12",
@@ -2300,7 +2296,7 @@ export default async function plugin(bb: BbPluginApi) {
       try {
         await continueWithFinding(primaryThreadId, row.id, true);
       } catch (error) {
-        bb.log.error(
+        rift.log.error(
           `Automatic Advisor continuation failed for ${primaryThreadId}: ${describeError(error)}`,
         );
       }
@@ -2314,14 +2310,14 @@ export default async function plugin(bb: BbPluginApi) {
         "Manual review requested by the user. Review the latest completed work.",
       );
       if (outcome.kind === "unavailable") {
-        bb.log.warn(
+        rift.log.warn(
           `Manual advisor review unavailable for ${primaryThreadId}: ${outcome.reason}.`,
         );
         return;
       }
       await surfacePendingFinding(primaryThreadId, outcome);
     } catch (error) {
-      bb.log.error(
+      rift.log.error(
         `Manual advisor review failed for ${primaryThreadId}: ${describeError(error)}`,
       );
     }
@@ -2336,7 +2332,7 @@ export default async function plugin(bb: BbPluginApi) {
       [...readThreadRows(primaryThreadId)].sort(byTurnDescending)[0]
         ?.source_seq ?? -1;
     try {
-      const timeline = await bb.sdk.threads.timeline({
+      const timeline = await rift.sdk.threads.timeline({
         threadId: primaryThreadId,
         includeNestedRows: "true",
         segmentLimit: "2",
@@ -2350,7 +2346,7 @@ export default async function plugin(bb: BbPluginApi) {
     return true;
   }
 
-  bb.events.on("thread.idle", async ({ thread, lastAssistantText }) => {
+  rift.events.on("thread.idle", async ({ thread, lastAssistantText }) => {
     // Always consume the one-turn suppression flag, even when settings or the
     // event payload make this idle transition ineligible for post-turn review.
     const toolReviewed = toolReviewedThreads.delete(thread.id);
@@ -2386,20 +2382,20 @@ export default async function plugin(bb: BbPluginApi) {
         "Post-turn review. Verify the completed answer and the work it claims.",
       );
       if (outcome.kind === "unavailable") {
-        bb.log.warn(
+        rift.log.warn(
           `Post-turn advisor review skipped for ${thread.id}: ${outcome.reason}.`,
         );
         return;
       }
       await surfacePendingFinding(thread.id, outcome);
     } catch (error) {
-      bb.log.error(
+      rift.log.error(
         `Post-turn advisor review failed for ${thread.id}: ${describeError(error)}`,
       );
     }
   });
 
-  bb.events.on("thread.failed", async ({ thread, error }) => {
+  rift.events.on("thread.failed", async ({ thread, error }) => {
     toolReviewedThreads.delete(thread.id);
     await cancelWaitingReview(
       thread.id,
@@ -2423,7 +2419,7 @@ export default async function plugin(bb: BbPluginApi) {
     toolReviewedThreads.delete(thread.id);
 
     if (permanent) {
-      // Only a real deletion destroys history. Archiving is reversible in bb,
+      // Only a real deletion destroys history. Archiving is reversible in rift,
       // so discarding a thread's reviews on archive would lose them for good
       // the moment the user unarchived it.
       db.prepare(`DELETE FROM advisor_reviews WHERE primary_thread_id = ?`).run(
@@ -2440,28 +2436,28 @@ export default async function plugin(bb: BbPluginApi) {
     // The hidden reviewer is archived either way: it is an appliance of the
     // primary thread, and unarchiving the primary respawns one on next review.
     if (advisorThreadId) {
-      await bb.sdk.threads
+      await rift.sdk.threads
         .archive({ threadId: advisorThreadId })
         .catch(() => undefined);
     }
   }
 
-  bb.events.on("thread.deleted", ({ thread }) => retireThread(thread, true));
-  bb.events.on("thread.archived", ({ thread }) => retireThread(thread, false));
+  rift.events.on("thread.deleted", ({ thread }) => retireThread(thread, true));
+  rift.events.on("thread.archived", ({ thread }) => retireThread(thread, false));
 
-  bb.cli.register({
+  rift.cli.register({
     name: "advisor",
     summary: "Inspect advisor configuration and review history",
     commands: [
       {
         name: "status",
         summary: "Show advisor status for the current or given thread",
-        usage: "bb advisor status [thread-id]",
+        usage: "rift advisor status [thread-id]",
       },
       {
         name: "reviews",
         summary: "Show recent advisor reviews",
-        usage: "bb advisor reviews [thread-id]",
+        usage: "rift advisor reviews [thread-id]",
       },
     ],
     run(argv, cliContext) {
@@ -2497,7 +2493,7 @@ export default async function plugin(bb: BbPluginApi) {
       }
       if (command === "reviews") {
         if (!threadId) {
-          return { exitCode: 1, stderr: "Pass a thread id or run from a bb thread." };
+          return { exitCode: 1, stderr: "Pass a thread id or run from a rift thread." };
         }
         const rows = db
           .prepare(
@@ -2527,7 +2523,7 @@ export default async function plugin(bb: BbPluginApi) {
       }
       return {
         exitCode: 1,
-        stderr: "Usage: bb advisor status [thread-id]\n       bb advisor reviews [thread-id]",
+        stderr: "Usage: rift advisor status [thread-id]\n       rift advisor reviews [thread-id]",
       };
     },
   });

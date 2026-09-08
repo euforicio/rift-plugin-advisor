@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   definePluginApp,
-  useBbNavigate,
+  useRiftNavigate,
   useComposer,
   useRealtime,
   useRealtimeConnectionState,
   useRpc,
   Markdown,
   ThreadChat,
-} from "@bb/plugin-sdk/app";
+} from "@riftlabs/plugin-sdk/app";
 import type {
   PluginRpcResult,
   PluginThreadHeaderActionProps,
   PluginThreadPanelProps,
-} from "@bb/plugin-sdk/app";
+} from "@riftlabs/plugin-sdk/app";
 import type { ModelConfiguration, rpcContract } from "./server";
 
 const PANEL_ACTION_ID = "reviews";
@@ -334,7 +334,7 @@ function AdvisorHeaderBadge({
   threadId,
   isCompactViewport,
 }: PluginThreadHeaderActionProps) {
-  const navigate = useBbNavigate();
+  const navigate = useRiftNavigate();
   const { data } = useThreadAdvisor<"threadBadge">(threadId, "threadBadge");
   if (!data) return null;
 
@@ -439,7 +439,7 @@ function badgeStanding(
  */
 function AdvisorComposerBanner() {
   const composer = useComposer();
-  const navigate = useBbNavigate();
+  const navigate = useRiftNavigate();
   const rpc = useRpc<Contract>();
   const scope = composer.scope;
   const threadId = scope.kind === "thread" ? scope.threadId : null;

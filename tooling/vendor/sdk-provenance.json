@@ -1,0 +1,10 @@
+{
+  "package": "@riftlabs/plugin-sdk@0.4.48",
+  "sourceRepository": "https://github.com/euforicio/rift-app",
+  "sourceState": "Exact pack-time source commit unrecorded. Real supplied archive; validationRef is subsequent app validation, not pack provenance.",
+  "sourcePath": "packages/plugin-sdk",
+  "archive": "../../vendor/riftlabs-plugin-sdk-0.4.48.tgz",
+  "sha256": "64a9dd34e7d811bb4dbfb8cc0d846a81be45c4de9825a68a2d8e9c50b20b9d7e",
+  "sha1": "91b55662887614875ae0554b59741bbc2272c3c3",
+  "validationRef": "edc8f6fc3d35f18ac267c6ece44ca57df4074577"
+}

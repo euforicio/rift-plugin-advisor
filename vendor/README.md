@@ -1,0 +1,1 @@
+SDK archive: @riftlabs/plugin-sdk 0.4.48 from Rift app migration. SHA256: 64a9dd34e7d811bb4dbfb8cc0d846a81be45c4de9825a68a2d8e9c50b20b9d7e. Exact pack-time commit is unrecorded; subsequent validation ref edc8f6fc3d35f18ac267c6ece44ca57df4074577 is not pack provenance. License: MIT, included in archive and tooling/vendor/RIFT-APP-LICENSE.

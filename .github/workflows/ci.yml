@@ -20,8 +20,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 22.19.0
+          node-version: 22.23.2
           cache: npm
+
+      - name: Verify vendored artifacts
+        run: |
+          echo "21e91c46a58cfdc2540eef5a86eddd09dc9166e241916786bfc7e62fe23dd4f2  tooling/vendor/rift-plugin-build-0.42.1.mjs" | sha256sum -c -
+          echo "64a9dd34e7d811bb4dbfb8cc0d846a81be45c4de9825a68a2d8e9c50b20b9d7e  vendor/riftlabs-plugin-sdk-0.4.48.tgz" | sha256sum -c -
 
       - name: Install dependencies
         run: npm ci
